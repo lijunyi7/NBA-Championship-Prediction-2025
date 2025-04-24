@@ -1,9 +1,11 @@
-from nba_api.stats.endpoints import leaguedashteamstats, leaguestandings
+from nba_api.stats.endpoints import leaguedashteamstats, leaguestandings, leaguedashplayerstats
 import pandas as pd
 import time
+import os
 
 
-def get_playoff_teams(year=2025, season_type="Regular Season"):
+
+def get_playoff_teams_data(year=2025):
     """
     Get the playoff teams data for a given year and season type.
     """
@@ -45,6 +47,52 @@ def get_playoff_teams(year=2025, season_type="Regular Season"):
     west = merged_filtered[merged_filtered['Conference'] == 'West'].sort_values(by='PlayoffRank').head(8)
     play_off_df = pd.concat([east, west]).sort_values(by=['Conference', 'PlayoffRank'])
     return play_off_df
+
+
+
+def get_playoff_players_data(year=2025, playoff_teams_df=None):
+    """
+    Get the playoff players data for a given year and season type.
+    """
+    if playoff_teams_df is None:
+        playoff_teams_df = get_playoff_teams_data(year)
+
+    time.sleep(1)
+
+    # Get all player stats from the season
+    player_stats = leaguedashplayerstats.LeagueDashPlayerStats(
+        season=f"{year-1}-{str(year)[-2:]}"
+    )
+    player_df = player_stats.get_data_frames()[0]
+
+    # Filter only players from playoff teams
+    playoff_team_ids = playoff_teams_df['TEAM_ID'].unique()
+    playoff_players_df = player_df[player_df['TEAM_ID'].isin(playoff_team_ids)]
+    return playoff_players_df
+
+
+def save_player_stats_per_team(playoff_players_df, output_dir="playoff_player_stats_2025"):
+    """
+    Save each playoff team's player stats into a separate CSV file.
+    """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Group players by team ID or team abbreviation
+    grouped = playoff_players_df.groupby('TEAM_ABBREVIATION')
+
+    for team_abbr, group in grouped:
+        # Create a clean filename
+        filename = f"{team_abbr}_players.csv"
+        filepath = os.path.join(output_dir, filename)
+
+        # Save to CSV
+        group.to_csv(filepath, index=False)
+
+
+
+    
+
 
 
 
